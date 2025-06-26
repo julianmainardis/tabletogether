@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { productService } from '../services/api';
+import { useRouter } from 'expo-router';
 
 const Menu = () => {
   const [categories, setCategories] = useState<any[]>([]);
@@ -9,6 +9,7 @@ const Menu = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -64,15 +65,21 @@ const Menu = () => {
           data={products}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.productCard}>
-              <Text style={styles.productName}>{item.name}</Text>
-              <Text style={styles.productPrice}>${item.price}</Text>
-              {/* Aquí irá el botón para ver detalles/agregar al carrito */}
-            </View>
+            <TouchableOpacity onPress={() => router.push({ pathname: '../src/screens/ProductDetail', params: { productId: item.id } })}>
+              <View style={styles.productCard}>
+                {/* Si tienes imágenes, puedes usar <Image source={{uri: item.image_url}} ... /> */}
+                <Text style={styles.productName}>{item.name}</Text>
+                <Text style={styles.productDesc}>{item.description}</Text>
+                <Text style={styles.productPrice}>${item.price}</Text>
+              </View>
+            </TouchableOpacity>
           )}
           contentContainerStyle={{ paddingBottom: 32 }}
         />
       )}
+      <TouchableOpacity style={styles.cartButton} onPress={() => router.push({ pathname: '../src/screens/Cart' })}>
+        <Text style={styles.cartButtonText}>Ver Carrito</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -121,10 +128,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  productDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+    marginBottom: 4,
+  },
   productPrice: {
     fontSize: 16,
     color: '#007AFF',
     marginTop: 4,
+  },
+  cartButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+    marginHorizontal: 16,
+  },
+  cartButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

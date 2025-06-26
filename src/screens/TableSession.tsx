@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { tableService, TableSessionResponse } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 const TableSession = () => {
   const { tableId } = useLocalSearchParams();
   const router = useRouter();
-  const [userName, setUserName] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!userName.trim()) {
-      Alert.alert('Error', 'Por favor ingresa tu nombre');
+    if (!name.trim()) {
+      setError('Por favor ingresa tu nombre');
       return;
     }
     try {
       setLoading(true);
-      const response: TableSessionResponse = await tableService.startTableSession(String(tableId), userName.trim());
+      const response: TableSessionResponse = await tableService.startTableSession(String(tableId), name.trim());
       // Guardar datos en AsyncStorage
       await AsyncStorage.setItem('tableId', response.tableId);
       await AsyncStorage.setItem('sessionId', response.sessionId);
@@ -31,7 +33,7 @@ const TableSession = () => {
       // Navegar a Menu
       router.replace('/Menu');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo iniciar la sesión en la mesa');
+      setError(error.message || 'No se pudo iniciar la sesión en la mesa');
     } finally {
       setLoading(false);
     }
@@ -39,17 +41,30 @@ const TableSession = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Bienvenido a la Mesa</Text>
-      <Text style={styles.label}>Ingresa tu nombre para comenzar a ordenar</Text>
+      <Text style={styles.title}>Unirse a la Mesa</Text>
       <TextInput
         style={styles.input}
         placeholder="Tu nombre"
-        value={userName}
-        onChangeText={setUserName}
-        editable={!loading}
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
       />
-      <Button title={loading ? 'Iniciando sesión...' : 'Comenzar'} onPress={handleSubmit} disabled={loading} />
-      {loading && <ActivityIndicator style={{ marginTop: 16 }} />}
+      {error && (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" style={{ marginRight: 6 }} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+      <TouchableOpacity style={styles.joinBtn} onPress={handleSubmit} disabled={loading || !name.trim()}>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="log-in-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.joinBtnText}>Unirse</Text>
+          </>
+        )}
+      </TouchableOpacity>
       {tableId && <Text style={styles.tableId}>Mesa: {tableId}</Text>}
     </View>
   );
@@ -58,28 +73,57 @@ const TableSession = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    alignItems: 'center',
     padding: 24,
   },
-  text: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
+    color: '#222',
+    marginBottom: 24,
+    fontFamily: 'System',
   },
   input: {
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 18,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#eee',
+    fontFamily: 'System',
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffe6e6',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#FF3B30',
     fontSize: 16,
+    fontFamily: 'System',
+  },
+  joinBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 8,
+  },
+  joinBtnText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontFamily: 'System',
   },
   tableId: {
     marginTop: 20,
