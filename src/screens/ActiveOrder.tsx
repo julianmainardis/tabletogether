@@ -5,6 +5,14 @@ import { orderService } from '../services/api';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+const COLORS = {
+  brownDark: '#6F4E37',
+  brown: '#A0522D',
+  brownLight: '#D2B48C',
+  beige: '#FFF8E1',
+  white: '#fff',
+};
+
 const ActiveOrder = () => {
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +71,7 @@ const ActiveOrder = () => {
         keyExtractor={(_, idx) => idx.toString()}
         renderItem={({ item }) => (
           <View style={styles.itemCard}>
-            <Ionicons name="fast-food-outline" size={28} color="#007AFF" style={{ marginRight: 12 }} />
+            <Ionicons name="fast-food-outline" size={28} color={COLORS.brownDark} style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.itemName}>{item.product.name}</Text>
               <Text style={styles.itemDesc}>{item.customizations?.join(', ')}</Text>
@@ -75,8 +83,8 @@ const ActiveOrder = () => {
         contentContainerStyle={{ paddingBottom: 32 }}
       />
       <View style={styles.breakdownCard}>
-        <Ionicons name="person-circle-outline" size={24} color="#007AFF" style={{ marginRight: 8 }} />
-        <Text style={styles.breakdownText}>Total por usuario: ${orderData.totals?.individualTotals?.find(t => t.userName === orderData.user)?.total ?? 0}</Text>
+        <Ionicons name="person-circle-outline" size={24} color={COLORS.brownDark} style={{ marginRight: 8 }} />
+        <Text style={styles.breakdownText}>Total por usuario: ${orderData.totals?.individualTotals?.find((t: any) => t.userName === orderData.user)?.total ?? 0}</Text>
       </View>
       <View style={styles.tipBox}>
         <Text style={styles.tipLabel}>Agregar propina:</Text>
@@ -88,15 +96,15 @@ const ActiveOrder = () => {
           onChangeText={setTip}
         />
         <TouchableOpacity style={styles.tipBtn} onPress={handleAddTip}>
-          <Ionicons name="cash-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
+          <Ionicons name="cash-outline" size={22} color={COLORS.white} style={{ marginRight: 8 }} />
           <Text style={styles.tipBtnText}>Agregar Propina</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.waiterBtn} onPress={handleCallWaiter}>
-        <Ionicons name="call-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
+        <Ionicons name="call-outline" size={22} color={COLORS.white} style={{ marginRight: 8 }} />
         <Text style={styles.waiterBtnText}>Llamar Mozo</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '../src/screens/Menu' })}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '/Menu' })}>
         <Text style={styles.backBtnText}>Volver al Menú</Text>
       </TouchableOpacity>
       <Modal visible={showModal} transparent animationType="fade">
@@ -113,32 +121,32 @@ const ActiveOrder = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.beige,
     paddingTop: 16,
-  },
-  empty: {
-    fontSize: 20,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.brownDark,
     marginBottom: 16,
     marginLeft: 16,
     fontFamily: 'System',
   },
+  empty: {
+    fontSize: 20,
+    color: COLORS.brown,
+    textAlign: 'center',
+    marginTop: 40,
+  },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: COLORS.brown,
     shadowOpacity: 0.07,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -146,80 +154,81 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.brownDark,
     fontFamily: 'System',
   },
   itemDesc: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.brown,
     marginTop: 2,
     fontFamily: 'System',
   },
   itemQty: {
     fontSize: 14,
-    color: '#007AFF',
+    color: COLORS.brown,
     marginTop: 2,
     fontFamily: 'System',
   },
   itemPrice: {
     fontSize: 16,
-    color: '#007AFF',
+    color: COLORS.brown,
     fontWeight: 'bold',
-    fontFamily: 'System',
   },
   breakdownCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f0ff',
-    borderRadius: 12,
+    backgroundColor: COLORS.brownLight,
+    borderRadius: 8,
     padding: 12,
+    marginTop: 16,
     marginHorizontal: 16,
-    marginBottom: 12,
   },
   breakdownText: {
-    fontSize: 16,
-    color: '#007AFF',
     fontWeight: 'bold',
-    fontFamily: 'System',
+    fontSize: 18,
+    color: COLORS.brownDark,
   },
   tipBox: {
-    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginTop: 16,
+    marginHorizontal: 16,
+    backgroundColor: COLORS.brownLight,
+    borderRadius: 8,
+    padding: 12,
   },
   tipLabel: {
+    color: COLORS.brownDark,
     fontWeight: 'bold',
     marginRight: 8,
   },
   tipInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+    backgroundColor: COLORS.white,
     borderRadius: 8,
     padding: 8,
+    fontSize: 16,
     width: 80,
     marginRight: 8,
-    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: COLORS.brownLight,
+    color: COLORS.brownDark,
   },
   tipBtn: {
     flexDirection: 'row',
-    backgroundColor: '#34C759',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: COLORS.brownDark,
+    padding: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 8,
-    marginHorizontal: 16,
-    justifyContent: 'center',
+    marginLeft: 8,
   },
   tipBtnText: {
-    color: '#fff',
-    fontSize: 18,
+    color: COLORS.white,
+    fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'System',
   },
   waiterBtn: {
     flexDirection: 'row',
-    backgroundColor: '#FF9500',
+    backgroundColor: COLORS.brown,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -228,20 +237,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   waiterBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'System',
   },
   backBtn: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brown,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
   },
   backBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -252,7 +260,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBox: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',

@@ -6,6 +6,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { socketService } from '../services/socket';
 
+const COLORS = {
+  brownDark: '#6F4E37',
+  brown: '#A0522D',
+  brownLight: '#D2B48C',
+  beige: '#FFF8E1',
+  white: '#fff',
+};
+
 const Cart = () => {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +118,7 @@ const Cart = () => {
       setShowModal(true);
       setTimeout(() => {
         setShowModal(false);
-        router.replace({ pathname: '../src/screens/ActiveOrder' });
+        router.replace({ pathname: '/ActiveOrder' });
       }, 1200);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'No se pudo confirmar el pedido');
@@ -125,7 +133,7 @@ const Cart = () => {
     return (
       <View style={styles.container}>
         <Text style={styles.empty}>El carrito está vacío</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '../src/screens/Menu' })}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '/Menu' })}>
           <Text style={styles.backBtnText}>Volver al Menú</Text>
         </TouchableOpacity>
       </View>
@@ -163,7 +171,7 @@ const Cart = () => {
         <Ionicons name="checkmark-circle-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.confirmBtnText}>Confirmar Pedido</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '../src/screens/Menu' })}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.replace({ pathname: '/Menu' })}>
         <Text style={styles.backBtnText}>Volver al Menú</Text>
       </TouchableOpacity>
       <Modal visible={showModal} transparent animationType="fade">
@@ -180,32 +188,32 @@ const Cart = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.beige,
     paddingTop: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.brownDark,
     marginBottom: 16,
     marginLeft: 16,
     fontFamily: 'System',
   },
   empty: {
     fontSize: 20,
-    color: '#888',
+    color: COLORS.brown,
     textAlign: 'center',
     marginTop: 40,
   },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: COLORS.brown,
     shadowOpacity: 0.07,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -213,18 +221,18 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.brownDark,
     fontFamily: 'System',
   },
   itemDesc: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.brown,
     marginTop: 2,
     fontFamily: 'System',
   },
   itemQty: {
     fontSize: 14,
-    color: '#007AFF',
+    color: COLORS.brown,
     marginTop: 2,
     fontFamily: 'System',
   },
@@ -235,7 +243,7 @@ const styles = StyleSheet.create({
   totalsBox: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#e6f7ff',
+    backgroundColor: COLORS.brownLight,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -243,32 +251,39 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 4,
+    color: COLORS.brownDark,
   },
   confirmBtn: {
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
     marginHorizontal: 16,
     justifyContent: 'center',
+    shadowColor: COLORS.brown,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   confirmBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'System',
   },
   backBtn: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brown,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
+    marginHorizontal: 16,
   },
   backBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -279,7 +294,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBox: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',

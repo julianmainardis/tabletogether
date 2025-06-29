@@ -3,6 +3,16 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { productService } from '../services/api';
 import { useRouter } from 'expo-router';
 
+const COLORS = {
+  brownDark: '#6F4E37',
+  brown: '#A0522D',
+  brownLight: '#D2B48C',
+  beige: '#FFF8E1',
+  white: '#fff',
+  tabUnselected: '#F5E6D3',
+  cardBg: '#F9F5F0',
+};
+
 const Menu = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -51,7 +61,7 @@ const Menu = () => {
         {categories.map((cat) => (
           <TouchableOpacity
             key={cat.id}
-            style={[styles.tab, selectedCategory === cat.id && styles.tabSelected]}
+            style={[styles.tab, selectedCategory === cat.id ? styles.tabSelected : styles.tabUnselected]}
             onPress={() => setSelectedCategory(cat.id)}
           >
             <Text style={[styles.tabText, selectedCategory === cat.id && styles.tabTextSelected]}>{cat.name}</Text>
@@ -65,7 +75,7 @@ const Menu = () => {
           data={products}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => router.push({ pathname: '../src/screens/ProductDetail', params: { productId: item.id } })}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/ProductDetail', params: { productId: item.id } })}>
               <View style={styles.productCard}>
                 {/* Si tienes imágenes, puedes usar <Image source={{uri: item.image_url}} ... /> */}
                 <Text style={styles.productName}>{item.name}</Text>
@@ -77,7 +87,7 @@ const Menu = () => {
           contentContainerStyle={{ paddingBottom: 32 }}
         />
       )}
-      <TouchableOpacity style={styles.cartButton} onPress={() => router.push({ pathname: '../src/screens/Cart' })}>
+      <TouchableOpacity style={styles.cartButton} onPress={() => router.push({ pathname: '/Cart' })}>
         <Text style={styles.cartButtonText}>Ver Carrito</Text>
       </TouchableOpacity>
     </View>
@@ -87,7 +97,7 @@ const Menu = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.beige,
     paddingTop: 16,
   },
   tabs: {
@@ -100,55 +110,65 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 20,
-    backgroundColor: '#eee',
     marginRight: 8,
   },
+  tabUnselected: {
+    backgroundColor: COLORS.tabUnselected,
+  },
   tabSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
   },
   tabText: {
-    color: '#333',
+    color: COLORS.brown,
     fontWeight: 'bold',
   },
   tabTextSelected: {
-    color: '#fff',
+    color: COLORS.white,
   },
   productCard: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.cardBg,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowColor: COLORS.brown,
+    shadowOpacity: 0.07,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
   productName: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: COLORS.brownDark,
   },
   productDesc: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.brown,
     marginTop: 4,
     marginBottom: 4,
   },
   productPrice: {
     fontSize: 16,
-    color: '#007AFF',
+    color: COLORS.brown,
     marginTop: 4,
+    fontWeight: 'bold',
   },
   cartButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
     marginHorizontal: 16,
+    shadowColor: COLORS.brown,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    marginBottom: 32,
   },
   cartButtonText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
   },

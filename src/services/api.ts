@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const API_URL = 'http://localhost:3000/api'; // Cambia esto por tu URL real si es necesario
 
 const defaultHeaders = {
@@ -68,18 +70,36 @@ export const productService = {
 };
 
 export const cartService = {
-  addToCart: async (cartId: string, productId: string, quantity: number, customizations: string[], userId: string, tableId: string, userName: string) => {
+  addToCart: async (
+    cartId: string, 
+    productId: string, 
+    quantity: number, 
+    customizations: string[], 
+    shareData?: {
+      isShared: boolean;
+      sharedWithAll?: boolean;
+      sharedWithUsers?: string[];
+    }
+  ) => {
+    const sessionToken = await AsyncStorage.getItem('sessionToken');
+    const headers = {
+      ...defaultHeaders,
+      'Authorization': `Bearer ${sessionToken}`,
+    };
+
     const response = await fetch(`${API_URL}/cart/${cartId}/items`, {
       method: 'POST',
-      headers: defaultHeaders,
+      headers,
       body: JSON.stringify({
         productId,
         quantity,
         customizations,
-        userId,
-        tableId,
-        userName,
-        isShared: false
+        userId: await AsyncStorage.getItem('userId'),
+        tableId: await AsyncStorage.getItem('tableId'),
+        userName: await AsyncStorage.getItem('userName'),
+        isShared: shareData?.isShared || false,
+        ...(shareData?.sharedWithAll !== undefined && { sharedWithAll: shareData.sharedWithAll }),
+        ...(shareData?.sharedWithUsers && shareData.sharedWithUsers.length > 0 && { sharedWithUsers: shareData.sharedWithUsers })
       })
     });
     if (!response.ok) await handleApiError(response);

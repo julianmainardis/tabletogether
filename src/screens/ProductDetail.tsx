@@ -6,16 +6,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cartService } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { socketService } from '../services/socket';
+import { useTableUsers } from '../contexts/TableUsersContext';
+
+const COLORS = {
+  brownDark: '#6F4E37',
+  brown: '#A0522D',
+  brownLight: '#D2B48C',
+  beige: '#FFF8E1',
+  white: '#fff',
+  cardBg: '#F9F5F0',
+  green: '#28a745',
+  red: '#dc3545',
+};
+
+interface Customization {
+  id: string;
+  name: string;
+  price_adjustment: number;
+  customization_group?: string;
+}
+
+interface CustomizationGroup {
+  is_required: boolean;
+  max_quantity: number;
+  customizations: Customization;
+  customization_id: string;
+}
 
 const ProductDetail = () => {
   const { productId } = useLocalSearchParams();
   const router = useRouter();
+  const { users, currentUser } = useTableUsers();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedCustomizations, setSelectedCustomizations] = useState<string[]>([]);
+  const [selectedCustomizations, setSelectedCustomizations] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  
+  // Estados para compartir
+  const [shareType, setShareType] = useState<'none' | 'all' | 'specific'>('none');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -24,41 +55,114 @@ const ProductDetail = () => {
         const prod = await productService.getProduct(String(productId));
         setProduct(prod);
       } catch (e) {
-        // Manejar error
+        ToastAndroid.show('Error al cargar el producto', ToastAndroid.LONG);
       } finally {
         setLoading(false);
       }
     };
+
     fetchProduct();
   }, [productId]);
 
-  const handleToggleCustomization = (id: string) => {
-    setSelectedCustomizations((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+  // Función para agrupar customizaciones
+  const groupCustomizations = (customizations: CustomizationGroup[] | undefined) => {
+    if (!customizations) return {};
+    const groups: Record<string, CustomizationGroup[]> = {};
+    customizations.forEach((c) => {
+      const group = c.customizations.customization_group || 'Otro';
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(c);
+    });
+    return groups;
+  };
+
+  const handleCustomizationChange = (group: string, value: string) => {
+    setSelectedCustomizations(prev => ({
+      ...prev,
+      [group]: value
+    }));
+  };
+
+  const handleShareTypeChange = (value: 'none' | 'all' | 'specific') => {
+    setShareType(value);
+    if (value !== 'specific') {
+      setSelectedUsers([]);
+    }
+  };
+
+  const handleUserSelection = (userId: string, checked: boolean) => {
+    setSelectedUsers(prev => {
+      const newSelection = checked 
+        ? [...prev, userId]
+        : prev.filter(id => id !== userId);
+      return newSelection;
+    });
   };
 
   const handleAddToCart = async () => {
     try {
+      if (shareType === 'specific' && selectedUsers.length === 0) {
+        ToastAndroid.show('Por favor selecciona al menos un usuario para compartir', ToastAndroid.LONG);
+        return;
+      }
+
       setAdding(true);
       const cartId = await AsyncStorage.getItem('cartId');
       const userId = await AsyncStorage.getItem('userId');
       const tableId = await AsyncStorage.getItem('tableId');
       const userName = await AsyncStorage.getItem('userName');
-      if (!cartId || !userId || !tableId || !userName) throw new Error('Faltan datos de sesión');
-      await cartService.addToCart(cartId, product.id, quantity, selectedCustomizations, userId, tableId, userName);
+      
+      if (!cartId || !userId || !tableId || !userName) {
+        throw new Error('Faltan datos de sesión');
+      }
+
+      const groupedCustomizations = groupCustomizations(product.customizations);
+
+      if (!product.customizations || product.customizations.length === 0) {
+        // Producto sin customizaciones
+        const shareData = {
+          isShared: shareType !== 'none',
+          sharedWithAll: shareType === 'all',
+          sharedWithUsers: shareType === 'specific' ? selectedUsers : undefined
+        };
+
+        await cartService.addToCart(cartId, product.id, quantity, [], shareData);
+      } else {
+        // Producto con customizaciones
+        const requiredGroups = Object.entries(groupedCustomizations).filter(([, groupCustoms]) => 
+          groupCustoms.some(c => c.is_required)
+        );
+        const missingRequired = requiredGroups.some(([group]) => !selectedCustomizations[group]);
+        
+        if (missingRequired) {
+          ToastAndroid.show('Por favor selecciona todas las opciones requeridas', ToastAndroid.LONG);
+          return;
+        }
+
+        const customizations = Object.values(selectedCustomizations).filter(Boolean);
+        const shareData = {
+          isShared: shareType !== 'none',
+          sharedWithAll: shareType === 'all',
+          sharedWithUsers: shareType === 'specific' ? selectedUsers : undefined
+        };
+
+        await cartService.addToCart(cartId, product.id, quantity, customizations, shareData);
+      }
+
+      // Emitir evento socket
       socketService.emitAddItem({
         productId: product.id,
         quantity,
-        customizations: selectedCustomizations,
+        customizations: Object.values(selectedCustomizations).filter(Boolean),
         userId,
         tableId,
         userName,
       });
+
       setShowModal(true);
       setTimeout(() => {
         setShowModal(false);
-        router.replace({ pathname: '../src/screens/Menu' });
+        router.replace({ pathname: '/Menu' });
       }, 1200);
     } catch (e: any) {
       ToastAndroid.show(e.message || 'Error al agregar al carrito', ToastAndroid.LONG);
@@ -67,51 +171,189 @@ const ProductDetail = () => {
     }
   };
 
+  // Calcular precio total incluyendo customizaciones
+  const calculateTotalPrice = () => {
+    if (!product) return 0;
+    
+    const groupedCustomizations = groupCustomizations(product.customizations);
+    const customizationPrice = Object.entries(selectedCustomizations).reduce((total, [group, customizationId]) => {
+      const groupCustoms = groupedCustomizations[group];
+      const customization = groupCustoms?.find(c => c.customization_id === customizationId);
+      return total + (customization?.customizations.price_adjustment || 0);
+    }, 0);
+
+    return (product.price + customizationPrice) * quantity;
+  };
+
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
   if (!product) return <Text>Producto no encontrado</Text>;
+
+  const groupedCustomizations = groupCustomizations(product.customizations);
+  const otherUsers = users.filter(user => user.userId !== currentUser?.userId);
+  const totalPrice = calculateTotalPrice();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {product.image_url && (
         <Image source={{ uri: product.image_url }} style={styles.image} resizeMode="cover" />
       )}
-      <Text style={styles.name}>{product.name}</Text>
-      <Text style={styles.price}>${product.price}</Text>
-      <Text style={styles.desc}>{product.description}</Text>
-      {product.customizations && product.customizations.length > 0 && (
-        <View style={styles.customSection}>
-          <Text style={styles.customTitle}>Customizaciones:</Text>
-          {product.customizations.map((custom: any) => (
+      
+      <View style={styles.card}>
+        <Text style={styles.name}>{product.name}</Text>
+        <Text style={styles.price}>${product.price}</Text>
+        <Text style={styles.desc}>{product.description}</Text>
+
+        {/* Customizaciones */}
+        {Object.entries(groupedCustomizations).map(([group, groupCustoms]) => (
+          <View key={group} style={styles.customSection}>
+            <Text style={styles.customTitle}>
+              {group} {groupCustoms.some(c => c.is_required) && <Text style={styles.required}>*</Text>}
+            </Text>
+            {groupCustoms.map((customization) => (
+              <TouchableOpacity
+                key={customization.customization_id}
+                style={[
+                  styles.customOption,
+                  selectedCustomizations[group] === customization.customization_id && styles.customOptionSelected
+                ]}
+                onPress={() => handleCustomizationChange(group, customization.customization_id)}
+              >
+                <View style={styles.radioContainer}>
+                  <View style={[
+                    styles.radio,
+                    selectedCustomizations[group] === customization.customization_id && styles.radioSelected
+                  ]}>
+                    {selectedCustomizations[group] === customization.customization_id && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={[
+                    styles.customText,
+                    selectedCustomizations[group] === customization.customization_id && styles.customTextSelected
+                  ]}>
+                    {customization.customizations.name}
+                    {customization.customizations.price_adjustment > 0 && (
+                      <Text style={styles.priceAdjustment}>
+                        {' '}(+${customization.customizations.price_adjustment})
+                      </Text>
+                    )}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
+
+        {/* Sección de Compartir */}
+        {otherUsers.length > 0 && (
+          <View style={styles.shareSection}>
+            <Text style={styles.shareTitle}>Compartir</Text>
+            
             <TouchableOpacity
-              key={custom.id}
-              style={[styles.customOption, selectedCustomizations.includes(custom.id) && styles.customOptionSelected]}
-              onPress={() => handleToggleCustomization(custom.id)}
+              style={[styles.shareOption, shareType === 'none' && styles.shareOptionSelected]}
+              onPress={() => handleShareTypeChange('none')}
             >
-              <Text style={styles.customText}>{custom.name} {custom.price_adjustment ? `(+${custom.price_adjustment})` : ''}</Text>
+              <View style={styles.radioContainer}>
+                <View style={[styles.radio, shareType === 'none' && styles.radioSelected]}>
+                  {shareType === 'none' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={[styles.shareText, shareType === 'none' && styles.shareTextSelected]}>
+                  No compartir
+                </Text>
+              </View>
             </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      <View style={styles.qtyRow}>
-        <TouchableOpacity style={styles.qtyBtn} onPress={() => setQuantity(Math.max(1, quantity - 1))}>
-          <Ionicons name="remove-circle-outline" size={28} color="#007AFF" />
-        </TouchableOpacity>
-        <Text style={styles.qtyText}>{quantity}</Text>
-        <TouchableOpacity style={styles.qtyBtn} onPress={() => setQuantity(quantity + 1)}>
-          <Ionicons name="add-circle-outline" size={28} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
-      <TouchableOpacity style={styles.addBtn} onPress={handleAddToCart} disabled={adding}>
-        {adding ? (
-          <Ionicons name="hourglass-outline" size={20} color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="cart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.addBtnText}>Agregar al Carrito</Text>
-          </>
+
+            <TouchableOpacity
+              style={[styles.shareOption, shareType === 'all' && styles.shareOptionSelected]}
+              onPress={() => handleShareTypeChange('all')}
+            >
+              <View style={styles.radioContainer}>
+                <View style={[styles.radio, shareType === 'all' && styles.radioSelected]}>
+                  {shareType === 'all' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={[styles.shareText, shareType === 'all' && styles.shareTextSelected]}>
+                  Compartir con toda la mesa
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.shareOption, shareType === 'specific' && styles.shareOptionSelected]}
+              onPress={() => handleShareTypeChange('specific')}
+            >
+              <View style={styles.radioContainer}>
+                <View style={[styles.radio, shareType === 'specific' && styles.radioSelected]}>
+                  {shareType === 'specific' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={[styles.shareText, shareType === 'specific' && styles.shareTextSelected]}>
+                  Compartir con participantes específicos
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Lista de usuarios cuando se selecciona "specific" */}
+            {shareType === 'specific' && (
+              <View style={styles.userList}>
+                <Text style={styles.userListTitle}>Selecciona con quién compartir:</Text>
+                {otherUsers.map((user) => (
+                  <TouchableOpacity
+                    key={user.userId}
+                    style={styles.userOption}
+                    onPress={() => handleUserSelection(user.userId, !selectedUsers.includes(user.userId))}
+                  >
+                    <View style={styles.checkboxContainer}>
+                      <View style={[
+                        styles.checkbox,
+                        selectedUsers.includes(user.userId) && styles.checkboxSelected
+                      ]}>
+                        {selectedUsers.includes(user.userId) && (
+                          <Ionicons name="checkmark" size={16} color={COLORS.white} />
+                        )}
+                      </View>
+                      <Text style={styles.userName}>
+                        {user.userName}
+                        {user.isOwner && <Text style={styles.ownerBadge}> (Anfitrión)</Text>}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         )}
-      </TouchableOpacity>
-      <Button title="Volver" onPress={() => router.back()} />
+
+        {/* Cantidad */}
+        <View style={styles.qtyRow}>
+          <TouchableOpacity style={styles.qtyBtn} onPress={() => setQuantity(Math.max(1, quantity - 1))}>
+            <Ionicons name="remove-circle-outline" size={28} color={COLORS.brownDark} />
+          </TouchableOpacity>
+          <Text style={styles.qtyText}>{quantity}</Text>
+          <TouchableOpacity style={styles.qtyBtn} onPress={() => setQuantity(quantity + 1)}>
+            <Ionicons name="add-circle-outline" size={28} color={COLORS.brownDark} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Precio total */}
+        <View style={styles.totalSection}>
+          <Text style={styles.totalLabel}>Precio total</Text>
+          <Text style={styles.totalPrice}>${totalPrice.toFixed(2)}</Text>
+        </View>
+
+        {/* Botón agregar al carrito */}
+        <TouchableOpacity style={styles.addBtn} onPress={handleAddToCart} disabled={adding}>
+          {adding ? (
+            <Ionicons name="hourglass-outline" size={20} color={COLORS.white} />
+          ) : (
+            <>
+              <Ionicons name="cart-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={styles.addBtnText}>Agregar al Carrito</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <Button title="Volver" onPress={() => router.back()} color={COLORS.brownDark} />
+      </View>
+
       <Modal visible={showModal} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -126,7 +368,7 @@ const ProductDetail = () => {
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.beige,
     flexGrow: 1,
     alignItems: 'center',
   },
@@ -135,21 +377,35 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 16,
     marginBottom: 16,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.cardBg,
+  },
+  card: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    shadowColor: COLORS.brown,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    marginBottom: 24,
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: COLORS.brownDark,
     marginBottom: 8,
   },
   price: {
     fontSize: 20,
-    color: '#007AFF',
+    color: COLORS.brown,
     marginBottom: 8,
+    fontWeight: 'bold',
   },
   desc: {
     fontSize: 16,
-    color: '#444',
+    color: COLORS.brown,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -160,18 +416,123 @@ const styles = StyleSheet.create({
   customTitle: {
     fontWeight: 'bold',
     marginBottom: 8,
+    color: COLORS.brownDark,
+    fontSize: 16,
+  },
+  required: {
+    color: COLORS.red,
   },
   customOption: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.brownLight,
     marginBottom: 8,
   },
   customOptionSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
+  },
+  radioContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: COLORS.brown,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    borderColor: COLORS.white,
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.white,
   },
   customText: {
-    color: '#333',
+    color: COLORS.brown,
+    fontSize: 14,
+    flex: 1,
+  },
+  customTextSelected: {
+    color: COLORS.white,
+  },
+  priceAdjustment: {
+    color: COLORS.green,
+    fontWeight: 'bold',
+  },
+  shareSection: {
+    width: '100%',
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.brownLight,
+  },
+  shareTitle: {
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: COLORS.brownDark,
+    fontSize: 16,
+  },
+  shareOption: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.brownLight,
+    marginBottom: 8,
+  },
+  shareOptionSelected: {
+    backgroundColor: COLORS.brownDark,
+  },
+  shareText: {
+    color: COLORS.brown,
+    fontSize: 14,
+  },
+  shareTextSelected: {
+    color: COLORS.white,
+  },
+  userList: {
+    marginTop: 12,
+    marginLeft: 16,
+  },
+  userListTitle: {
+    fontSize: 12,
+    color: COLORS.brown,
+    marginBottom: 8,
+  },
+  userOption: {
+    marginBottom: 8,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.brown,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: COLORS.brownDark,
+    borderColor: COLORS.brownDark,
+  },
+  userName: {
+    color: COLORS.brown,
+    fontSize: 14,
+  },
+  ownerBadge: {
+    color: COLORS.brownDark,
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   qtyRow: {
     flexDirection: 'row',
@@ -185,21 +546,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginHorizontal: 16,
-    color: '#222',
+    color: COLORS.brownDark,
     fontFamily: 'System',
+  },
+  totalSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: COLORS.brown,
+    marginBottom: 4,
+  },
+  totalPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.brownDark,
   },
   addBtn: {
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     marginTop: 8,
+    shadowColor: COLORS.brown,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   addBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'System',
@@ -211,7 +591,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBox: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',
@@ -219,7 +599,7 @@ const styles = StyleSheet.create({
   modalText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#28a745',
+    color: COLORS.green,
   },
 });
 

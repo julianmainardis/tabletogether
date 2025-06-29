@@ -5,6 +5,14 @@ import { tableService, TableSessionResponse } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
+const COLORS = {
+  brownDark: '#6F4E37',
+  brown: '#A0522D',
+  brownLight: '#D2B48C',
+  beige: '#FFF8E1',
+  white: '#fff',
+};
+
 const TableSession = () => {
   const { tableId } = useLocalSearchParams();
   const router = useRouter();
@@ -48,19 +56,20 @@ const TableSession = () => {
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
+        placeholderTextColor={COLORS.brownLight}
       />
       {error && (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" style={{ marginRight: 6 }} />
+          <Ionicons name="alert-circle-outline" size={20} color={COLORS.brownDark} style={{ marginRight: 6 }} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
       <TouchableOpacity style={styles.joinBtn} onPress={handleSubmit} disabled={loading || !name.trim()}>
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={COLORS.white} />
         ) : (
           <>
-            <Ionicons name="log-in-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Ionicons name="log-in-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
             <Text style={styles.joinBtnText}>Unirse</Text>
           </>
         )}
@@ -73,7 +82,7 @@ const TableSession = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.beige,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -81,20 +90,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.brownDark,
     marginBottom: 24,
     fontFamily: 'System',
   },
   input: {
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.brownLight,
     fontFamily: 'System',
+    color: COLORS.brownDark,
   },
   errorBox: {
     flexDirection: 'row',
@@ -105,13 +115,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   errorText: {
-    color: '#FF3B30',
+    color: COLORS.brownDark,
     fontSize: 16,
     fontFamily: 'System',
   },
   joinBtn: {
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.brownDark,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -120,7 +130,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   joinBtnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'System',
@@ -128,7 +138,7 @@ const styles = StyleSheet.create({
   tableId: {
     marginTop: 20,
     fontSize: 20,
-    color: '#007AFF',
+    color: COLORS.brown,
   },
 });
 
