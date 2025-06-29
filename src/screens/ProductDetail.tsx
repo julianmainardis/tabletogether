@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button, ActivityIndicator, ScrollView, TouchableOpacity, ToastAndroid, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, Button, ActivityIndicator, ScrollView, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { productService } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,7 +36,7 @@ interface CustomizationGroup {
 const ProductDetail = () => {
   const { productId } = useLocalSearchParams();
   const router = useRouter();
-  const { users, currentUser } = useTableUsers();
+  const { users, currentUser, loading: usersLoading } = useTableUsers();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCustomizations, setSelectedCustomizations] = useState<Record<string, string>>({});
@@ -55,7 +55,7 @@ const ProductDetail = () => {
         const prod = await productService.getProduct(String(productId));
         setProduct(prod);
       } catch (e) {
-        ToastAndroid.show('Error al cargar el producto', ToastAndroid.LONG);
+        Alert.alert('Error', 'Error al cargar el producto');
       } finally {
         setLoading(false);
       }
@@ -102,7 +102,7 @@ const ProductDetail = () => {
   const handleAddToCart = async () => {
     try {
       if (shareType === 'specific' && selectedUsers.length === 0) {
-        ToastAndroid.show('Por favor selecciona al menos un usuario para compartir', ToastAndroid.LONG);
+        Alert.alert('Error', 'Por favor selecciona al menos un usuario para compartir');
         return;
       }
 
@@ -135,7 +135,7 @@ const ProductDetail = () => {
         const missingRequired = requiredGroups.some(([group]) => !selectedCustomizations[group]);
         
         if (missingRequired) {
-          ToastAndroid.show('Por favor selecciona todas las opciones requeridas', ToastAndroid.LONG);
+          Alert.alert('Error', 'Por favor selecciona todas las opciones requeridas');
           return;
         }
 
@@ -165,7 +165,7 @@ const ProductDetail = () => {
         router.replace({ pathname: '/Menu' });
       }, 1200);
     } catch (e: any) {
-      ToastAndroid.show(e.message || 'Error al agregar al carrito', ToastAndroid.LONG);
+      Alert.alert('Error', e.message || 'Error al agregar al carrito');
     } finally {
       setAdding(false);
     }
@@ -185,7 +185,7 @@ const ProductDetail = () => {
     return (product.price + customizationPrice) * quantity;
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (loading || usersLoading) return <ActivityIndicator style={{ flex: 1 }} />;
   if (!product) return <Text>Producto no encontrado</Text>;
 
   const groupedCustomizations = groupCustomizations(product.customizations);
@@ -200,7 +200,6 @@ const ProductDetail = () => {
       
       <View style={styles.card}>
         <Text style={styles.name}>{product.name}</Text>
-        <Text style={styles.price}>${product.price}</Text>
         <Text style={styles.desc}>{product.description}</Text>
 
         {/* Customizaciones */}
@@ -245,38 +244,38 @@ const ProductDetail = () => {
         ))}
 
         {/* Sección de Compartir */}
-        {otherUsers.length > 0 && (
-          <View style={styles.shareSection}>
-            <Text style={styles.shareTitle}>Compartir</Text>
-            
-            <TouchableOpacity
-              style={[styles.shareOption, shareType === 'none' && styles.shareOptionSelected]}
-              onPress={() => handleShareTypeChange('none')}
-            >
-              <View style={styles.radioContainer}>
-                <View style={[styles.radio, shareType === 'none' && styles.radioSelected]}>
-                  {shareType === 'none' && <View style={styles.radioInner} />}
-                </View>
-                <Text style={[styles.shareText, shareType === 'none' && styles.shareTextSelected]}>
-                  No compartir
-                </Text>
+        <View style={styles.shareSection}>
+          <Text style={styles.shareTitle}>Compartir</Text>
+          
+          <TouchableOpacity
+            style={[styles.shareOption, shareType === 'none' && styles.shareOptionSelected]}
+            onPress={() => handleShareTypeChange('none')}
+          >
+            <View style={styles.radioContainer}>
+              <View style={[styles.radio, shareType === 'none' && styles.radioSelected]}>
+                {shareType === 'none' && <View style={styles.radioInner} />}
               </View>
-            </TouchableOpacity>
+              <Text style={[styles.shareText, shareType === 'none' && styles.shareTextSelected]}>
+                Solo para mí
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.shareOption, shareType === 'all' && styles.shareOptionSelected]}
-              onPress={() => handleShareTypeChange('all')}
-            >
-              <View style={styles.radioContainer}>
-                <View style={[styles.radio, shareType === 'all' && styles.radioSelected]}>
-                  {shareType === 'all' && <View style={styles.radioInner} />}
-                </View>
-                <Text style={[styles.shareText, shareType === 'all' && styles.shareTextSelected]}>
-                  Compartir con toda la mesa
-                </Text>
+          <TouchableOpacity
+            style={[styles.shareOption, shareType === 'all' && styles.shareOptionSelected]}
+            onPress={() => handleShareTypeChange('all')}
+          >
+            <View style={styles.radioContainer}>
+              <View style={[styles.radio, shareType === 'all' && styles.radioSelected]}>
+                {shareType === 'all' && <View style={styles.radioInner} />}
               </View>
-            </TouchableOpacity>
+              <Text style={[styles.shareText, shareType === 'all' && styles.shareTextSelected]}>
+                Compartir con toda la mesa
+              </Text>
+            </View>
+          </TouchableOpacity>
 
+          {otherUsers.length > 0 && (
             <TouchableOpacity
               style={[styles.shareOption, shareType === 'specific' && styles.shareOptionSelected]}
               onPress={() => handleShareTypeChange('specific')}
@@ -285,42 +284,42 @@ const ProductDetail = () => {
                 <View style={[styles.radio, shareType === 'specific' && styles.radioSelected]}>
                   {shareType === 'specific' && <View style={styles.radioInner} />}
                 </View>
-                <Text style={[styles.shareText, shareType === 'specific' && styles.shareTextSelected]}>
+                <Text style={[styles.shareText, shareType === 'specific' && styles.shareTextSelected]} numberOfLines={2}>
                   Compartir con participantes específicos
                 </Text>
               </View>
             </TouchableOpacity>
+          )}
 
-            {/* Lista de usuarios cuando se selecciona "specific" */}
-            {shareType === 'specific' && (
-              <View style={styles.userList}>
-                <Text style={styles.userListTitle}>Selecciona con quién compartir:</Text>
-                {otherUsers.map((user) => (
-                  <TouchableOpacity
-                    key={user.userId}
-                    style={styles.userOption}
-                    onPress={() => handleUserSelection(user.userId, !selectedUsers.includes(user.userId))}
-                  >
-                    <View style={styles.checkboxContainer}>
-                      <View style={[
-                        styles.checkbox,
-                        selectedUsers.includes(user.userId) && styles.checkboxSelected
-                      ]}>
-                        {selectedUsers.includes(user.userId) && (
-                          <Ionicons name="checkmark" size={16} color={COLORS.white} />
-                        )}
-                      </View>
-                      <Text style={styles.userName}>
-                        {user.userName}
-                        {user.isOwner && <Text style={styles.ownerBadge}> (Anfitrión)</Text>}
-                      </Text>
+          {/* Lista de usuarios cuando se selecciona "specific" */}
+          {shareType === 'specific' && otherUsers.length > 0 && (
+            <View style={styles.userList}>
+              <Text style={styles.userListTitle}>Selecciona con quién compartir:</Text>
+              {otherUsers.map((user) => (
+                <TouchableOpacity
+                  key={user.userId}
+                  style={styles.userOption}
+                  onPress={() => handleUserSelection(user.userId, !selectedUsers.includes(user.userId))}
+                >
+                  <View style={styles.checkboxContainer}>
+                    <View style={[
+                      styles.checkbox,
+                      selectedUsers.includes(user.userId) && styles.checkboxSelected
+                    ]}>
+                      {selectedUsers.includes(user.userId) && (
+                        <Ionicons name="checkmark" size={16} color={COLORS.white} />
+                      )}
                     </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
+                    <Text style={styles.userName}>
+                      {user.userName}
+                      {user.isOwner && <Text style={styles.ownerBadge}> (Anfitrión)</Text>}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Cantidad */}
         <View style={styles.qtyRow}>
@@ -335,7 +334,6 @@ const ProductDetail = () => {
 
         {/* Precio total */}
         <View style={styles.totalSection}>
-          <Text style={styles.totalLabel}>Precio total</Text>
           <Text style={styles.totalPrice}>${totalPrice.toFixed(2)}</Text>
         </View>
 
@@ -397,12 +395,6 @@ const styles = StyleSheet.create({
     color: COLORS.brownDark,
     marginBottom: 8,
   },
-  price: {
-    fontSize: 20,
-    color: COLORS.brown,
-    marginBottom: 8,
-    fontWeight: 'bold',
-  },
   desc: {
     fontSize: 16,
     color: COLORS.brown,
@@ -423,25 +415,28 @@ const styles = StyleSheet.create({
     color: COLORS.red,
   },
   customOption: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.brownLight,
-    marginBottom: 8,
+    padding: 4,
+    borderRadius: 3,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 3,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   customOptionSelected: {
-    backgroundColor: COLORS.brownDark,
+    backgroundColor: COLORS.brownLight,
+    borderColor: COLORS.brown,
   },
   radioContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
     borderColor: COLORS.brown,
-    marginRight: 12,
+    marginRight: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -449,18 +444,20 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
   radioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: COLORS.white,
   },
   customText: {
     color: COLORS.brown,
-    fontSize: 14,
+    fontSize: 11,
     flex: 1,
+    lineHeight: 14,
   },
   customTextSelected: {
-    color: COLORS.white,
+    color: COLORS.brownDark,
+    fontWeight: '500',
   },
   priceAdjustment: {
     color: COLORS.green,
@@ -480,20 +477,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   shareOption: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.brownLight,
-    marginBottom: 8,
+    padding: 4,
+    borderRadius: 3,
+    backgroundColor: '#F5F5F5',
+    marginBottom: 3,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   shareOptionSelected: {
-    backgroundColor: COLORS.brownDark,
+    backgroundColor: COLORS.brownLight,
+    borderColor: COLORS.brown,
   },
   shareText: {
     color: COLORS.brown,
-    fontSize: 14,
+    fontSize: 11,
+    flex: 1,
+    lineHeight: 14,
   },
   shareTextSelected: {
-    color: COLORS.white,
+    color: COLORS.brownDark,
+    fontWeight: '500',
   },
   userList: {
     marginTop: 12,
@@ -552,11 +555,6 @@ const styles = StyleSheet.create({
   totalSection: {
     alignItems: 'center',
     marginBottom: 16,
-  },
-  totalLabel: {
-    fontSize: 14,
-    color: COLORS.brown,
-    marginBottom: 4,
   },
   totalPrice: {
     fontSize: 24,

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { socketService } from '../services/socket';
+import { tableService } from '../services/api';
 
 interface TableUser {
   userId: string;
@@ -16,6 +17,7 @@ interface TableUsersContextType {
   addUser: (user: TableUser) => void;
   removeUser: (userId: string) => void;
   updateUsers: (users: TableUser[]) => void;
+  loading: boolean;
 }
 
 const TableUsersContext = createContext<TableUsersContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ interface TableUsersProviderProps {
 
 export const TableUsersProvider: React.FC<TableUsersProviderProps> = ({ children }) => {
   const [users, setUsers] = useState<TableUser[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Detectar el usuario actual dinámicamente
   const getCurrentUser = useCallback(async () => {
@@ -71,6 +74,65 @@ export const TableUsersProvider: React.FC<TableUsersProviderProps> = ({ children
     setUsers(newUsers);
   }, []);
 
+  // Cargar usuarios reales de la mesa
+  const loadTableUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const tableId = await AsyncStorage.getItem('tableId');
+      if (!tableId) {
+        // Si no hay tableId, usar solo el usuario actual
+        const currentUserId = await AsyncStorage.getItem('userId');
+        const currentUserName = await AsyncStorage.getItem('userName');
+        const isOwner = await AsyncStorage.getItem('isOwner');
+        
+        if (currentUserId && currentUserName) {
+          const currentUser = {
+            userId: currentUserId,
+            userName: currentUserName,
+            isOwner: isOwner === 'true',
+            joinedAt: new Date().toISOString()
+          };
+          setUsers([currentUser]);
+        }
+        return;
+      }
+
+      // Intentar obtener usuarios de la mesa desde la API
+      try {
+        const tableInfo = await tableService.getTableInfo(tableId);
+        if (tableInfo && tableInfo.users) {
+          const formattedUsers = tableInfo.users.map((user: any) => ({
+            userId: user.userId || user.uuid || user.id,
+            userName: user.userName || user.name,
+            isOwner: user.isOwner || false,
+            joinedAt: user.joinedAt || new Date().toISOString()
+          }));
+          setUsers(formattedUsers);
+        }
+      } catch (error) {
+        console.log('No se pudieron cargar usuarios de la mesa, usando solo usuario actual');
+        // Fallback: usar solo el usuario actual
+        const currentUserId = await AsyncStorage.getItem('userId');
+        const currentUserName = await AsyncStorage.getItem('userName');
+        const isOwner = await AsyncStorage.getItem('isOwner');
+        
+        if (currentUserId && currentUserName) {
+          const currentUser = {
+            userId: currentUserId,
+            userName: currentUserName,
+            isOwner: isOwner === 'true',
+            joinedAt: new Date().toISOString()
+          };
+          setUsers([currentUser]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading table users:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const loadCurrentUser = async () => {
       const user = await getCurrentUser();
@@ -80,33 +142,8 @@ export const TableUsersProvider: React.FC<TableUsersProviderProps> = ({ children
   }, [getCurrentUser]);
 
   useEffect(() => {
-    const loadInitialUser = async () => {
-      const currentUserId = await AsyncStorage.getItem('userId');
-      const currentUserName = await AsyncStorage.getItem('userName');
-      const isOwner = await AsyncStorage.getItem('isOwner');
-      
-      if (currentUserId && currentUserName && !users.find(u => u.userId === currentUserId)) {
-        addUser({
-          userId: currentUserId,
-          userName: currentUserName,
-          isOwner: isOwner === 'true',
-          joinedAt: new Date().toISOString()
-        });
-      }
-    };
-    loadInitialUser();
-  }, [users, addUser]);
-
-  // Por ahora, simulamos usuarios de la mesa
-  // En una implementación real, esto vendría del socket o API
-  useEffect(() => {
-    const mockUsers: TableUser[] = [
-      { userId: '1', userName: 'Juan', isOwner: true },
-      { userId: '2', userName: 'María' },
-      { userId: '3', userName: 'Carlos' },
-    ];
-    setUsers(mockUsers);
-  }, []);
+    loadTableUsers();
+  }, [loadTableUsers]);
 
   const totalUsers = users.length;
 
@@ -117,7 +154,8 @@ export const TableUsersProvider: React.FC<TableUsersProviderProps> = ({ children
       currentUser,
       addUser,
       removeUser,
-      updateUsers
+      updateUsers,
+      loading
     }}>
       {children}
     </TableUsersContext.Provider>
